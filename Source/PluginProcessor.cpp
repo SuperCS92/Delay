@@ -191,41 +191,22 @@ void DelayKAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer&
     
     for (int i = 0; i < buffer.getNumSamples(); i++) {
         
-        mDelayTimeSmothed = mDelayTimeSmothed - 0.001 * (mDelayTimeSmothed - *mDelayTimeParameter);
-        mDelayTimeInSamples = getSampleRate() * mDelayTimeSmothed;
+        //=======================================================================
+        updateTimeDelay();
         
+        //=======================================================================
+        writeInTheBuffer(leftChannel, RightChannel,i );
+       
+        //=======================================================================
+        updateReadHead();
+      
+        //=======================================================================
+        writeDelayedSample(buffer, i, delay_sample_left, delay_sample_right);
         
-        mCircularBufferLeft[mCircularBufferWriteHead] = leftChannel[i] + mFeedbackLeft;
-        mCircularBufferRight[mCircularBufferWriteHead] = RightChannel[i] + mFeedbackRight;
+        //=======================================================================
+        updateFeedbackSample(delay_sample_left,delay_sample_right);
         
-        mCircularBufferReadHead = mCircularBufferWriteHead - mDelayTimeInSamples;
-        
-        if (mCircularBufferReadHead < 0) {
-            mCircularBufferReadHead += mCircularBufferLength;
-        }
-        
-        int readHead_x = (int) mCircularBufferReadHead;
-        int readHead_x1 = readHead_x + 1;
-        
-        float readHeadFloat = mCircularBufferReadHead - readHead_x;
-        
-        if (readHead_x1 >= mCircularBufferLength) {
-            readHead_x1 -= mCircularBufferLength;
-        }
-        
-        
-        
-        float delay_sample_left = lin_interp(mCircularBufferLeft[readHead_x], mCircularBufferLeft[readHead_x1], readHeadFloat);
-        float delay_sample_right = lin_interp(mCircularBufferRight[readHead_x], mCircularBufferRight[readHead_x1], readHeadFloat);
-        
-        mFeedbackLeft = delay_sample_left * *mFeedbackParameter;
-        mFeedbackRight = delay_sample_right * *mFeedbackParameter;
-
-        
-        
-        buffer.setSample(0, i, buffer.getSample(0, i) * (1 - *mDryWetParameter)  + delay_sample_left * *mDryWetParameter );
-        buffer.setSample(1, i, buffer.getSample(1, i) * (1 - *mDryWetParameter) + delay_sample_right * *mDryWetParameter);
-
+        //=======================================================================
         mCircularBufferWriteHead++;
         
         if (mCircularBufferWriteHead >= mCircularBufferLength) {
@@ -254,12 +235,34 @@ void DelayKAudioProcessor::getStateInformation (MemoryBlock& destData)
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+    
+    std::unique_ptr<juce::XmlElement> xml (new juce::XmlElement ("ParamTutorial"));
+    xml->setAttribute ("DryWet", (double) *mDryWetParameter);
+    xml->setAttribute ("Feedback", (double) *mFeedbackParameter);
+    xml->setAttribute ("DelayTime", (double) *mDelayTimeParameter);
+    
+    copyXmlToBinary (*xml, destData);
+    
+    
 }
 
 void DelayKAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+    
+    if (xmlState.get() != nullptr)
+        if (xmlState->hasTagName ("ParamTutorial"))
+        {
+            *mDryWetParameter = (float) xmlState->getDoubleAttribute ("DryWet", 0.5);
+            *mFeedbackParameter = (float) xmlState->getDoubleAttribute ("Feedback", 0.5);
+            *mDelayTimeParameter = (float) xmlState->getDoubleAttribute ("DelayTime", 0.5);
+            
+        }
+    
+    
 }
 
 //==============================================================================
@@ -274,3 +277,54 @@ float DelayKAudioProcessor::lin_interp (float sample_x, float sample_x1, float i
 {
     return (1 - inPhase) * sample_x + inPhase * sample_x1;
 }
+
+
+void DelayKAudioProcessor::updateTimeDelay ()
+{
+    mDelayTimeSmothed = mDelayTimeSmothed - 0.001 * (mDelayTimeSmothed - *mDelayTimeParameter);
+    mDelayTimeInSamples = getSampleRate() * mDelayTimeSmothed;
+    
+}
+
+void DelayKAudioProcessor::writeInTheBuffer(float* left, float* right, int i )
+{
+    mCircularBufferLeft[mCircularBufferWriteHead] = left[i] + mFeedbackLeft;
+    mCircularBufferRight[mCircularBufferWriteHead] = right[i] + mFeedbackRight;
+}
+
+void DelayKAudioProcessor::updateReadHead()
+{
+    mCircularBufferReadHead = mCircularBufferWriteHead - mDelayTimeInSamples;
+    
+    if (mCircularBufferReadHead < 0) {
+        mCircularBufferReadHead += mCircularBufferLength;
+    }
+    
+    readHead_x = (int) mCircularBufferReadHead;
+    readHead_x1 = readHead_x + 1;
+    
+    readHeadFloat = mCircularBufferReadHead - readHead_x;
+    
+    if (readHead_x1 >= mCircularBufferLength) {
+        readHead_x1 -= mCircularBufferLength;
+    }
+    
+}
+
+void DelayKAudioProcessor::writeDelayedSample(AudioBuffer<float>& buffer, int i, float& left, float& right)
+{
+    left = lin_interp(mCircularBufferLeft[readHead_x], mCircularBufferLeft[readHead_x1], readHeadFloat);
+    right = lin_interp(mCircularBufferRight[readHead_x], mCircularBufferRight[readHead_x1], readHeadFloat);
+    
+    buffer.setSample(0, i, buffer.getSample(0, i) * (1 - *mDryWetParameter)  + delay_sample_left * *mDryWetParameter );
+    buffer.setSample(1, i, buffer.getSample(1, i) * (1 - *mDryWetParameter) + delay_sample_right * *mDryWetParameter);
+    
+
+}
+
+void DelayKAudioProcessor::updateFeedbackSample(const float& left,const float& right)
+{
+    mFeedbackLeft = left * *mFeedbackParameter;
+    mFeedbackRight = right * *mFeedbackParameter;
+}
+

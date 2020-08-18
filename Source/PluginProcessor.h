@@ -59,6 +59,11 @@ public:
     
     //==============================================================================
     float lin_interp (float sample_x, float sample_x1, float inPhase);
+    void updateTimeDelay ();
+    void writeInTheBuffer(float* left, float* right, int i);
+    void updateReadHead();
+    void writeDelayedSample(AudioBuffer<float>& buffer, int i, float& left, float& right);
+    void updateFeedbackSample(const float& left,const float& right);
 
 private:
     
@@ -81,7 +86,14 @@ private:
     
     std::unique_ptr<float[]> mCircularBufferLeft;
     std::unique_ptr<float []> mCircularBufferRight;
+    
+    int readHead_x{0};
+    int readHead_x1{0};
+    float readHeadFloat{0.0f};
 
+    float delay_sample_left {0};
+    float delay_sample_right {0};
+    
     //float* mCircularBufferLeft;
     //float* mCircularBufferRight;
 

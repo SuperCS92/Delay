@@ -20,7 +20,7 @@ DelayKAudioProcessorEditor::DelayKAudioProcessorEditor (DelayKAudioProcessor& p)
     
     auto& params = processor.getParameters();
     
-    AudioParameterFloat* dryWetParameter = (AudioParameterFloat*) params.getUnchecked(0);
+    AudioParameterFloat* dryWetParameter = (AudioParameterFloat*) processor.treeState.getParameter(DRYWET_ID);
     
     mDryWetSlider.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
     mDryWetSlider.setRange(dryWetParameter->range.start, dryWetParameter->range.end);
@@ -28,15 +28,15 @@ DelayKAudioProcessorEditor::DelayKAudioProcessorEditor (DelayKAudioProcessor& p)
     addAndMakeVisible(mDryWetSlider);
     mDryWetSlider.setTextBoxStyle(Slider::TextBoxBelow, true, 60, 50);
     mDryWetSlider.onValueChange = [this, dryWetParameter] { *dryWetParameter = mDryWetSlider.getValue();};
-    mDryWetSlider.onDragStart = [dryWetParameter] { dryWetParameter->beginChangeGesture(); };
-    mDryWetSlider.onDragEnd = [dryWetParameter] { dryWetParameter->endChangeGesture(); };
+    //mDryWetSlider.onDragStart = [dryWetParameter] { dryWetParameter->beginChangeGesture(); };
+    //mDryWetSlider.onDragEnd = [dryWetParameter] { dryWetParameter->endChangeGesture(); };
     mDryWetSlider.setNumDecimalPlacesToDisplay(2);
     
     mDryWetLabel.attachToComponent(&mDryWetSlider, false);
     mDryWetLabel.setText("   Dry/Wet", dontSendNotification);
     
     
-    AudioParameterFloat* feedbackParameter = (AudioParameterFloat*) params.getUnchecked(1);
+    AudioParameterFloat* feedbackParameter = (AudioParameterFloat*) processor.treeState.getParameter(FEEDBACK_ID);
     
     mFeedbackSlider.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
     mFeedbackSlider.setRange(Decibels::gainToDecibels(feedbackParameter->range.start), Decibels::gainToDecibels(feedbackParameter->range.end));
@@ -44,8 +44,8 @@ DelayKAudioProcessorEditor::DelayKAudioProcessorEditor (DelayKAudioProcessor& p)
     addAndMakeVisible(mFeedbackSlider);
     mFeedbackSlider.setTextBoxStyle(Slider::TextBoxBelow, true, 60, 50);
     mFeedbackSlider.onValueChange = [this, feedbackParameter] { *feedbackParameter = Decibels::decibelsToGain( mFeedbackSlider.getValue());};
-    mFeedbackSlider.onDragStart = [feedbackParameter] { feedbackParameter->beginChangeGesture(); };
-    mFeedbackSlider.onDragEnd = [feedbackParameter] { feedbackParameter->endChangeGesture(); };
+    //mFeedbackSlider.onDragStart = [feedbackParameter] { feedbackParameter->beginChangeGesture(); };
+    //mFeedbackSlider.onDragEnd = [feedbackParameter] { feedbackParameter->endChangeGesture(); };
     mFeedbackSlider.setNumDecimalPlacesToDisplay(1);
     mFeedbackSlider.setTextValueSuffix("DBs");
     mFeedbackSlider.setSkewFactorFromMidPoint(-16.0);
@@ -68,6 +68,10 @@ DelayKAudioProcessorEditor::DelayKAudioProcessorEditor (DelayKAudioProcessor& p)
     
     mDelayTimeLabel.attachToComponent(&mDelayTimeSlider, false);
     mDelayTimeLabel.setText("      Delay", dontSendNotification);
+    
+    
+    DryWetValue = std::make_unique<AudioProcessorValueTreeState::SliderAttachment> (processor.treeState, DRYWET_ID, mDryWetSlider);
+    FeedbackValue = std::make_unique<AudioProcessorValueTreeState::SliderAttachment> (processor.treeState, FEEDBACK_ID, mFeedbackSlider);
     
 
 }
